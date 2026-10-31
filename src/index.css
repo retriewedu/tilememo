@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* Custom Scrollbar for clean white theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* KaTeX custom sizing helper */
+.katex-display {
+  margin: 0.25rem 0 !important;
+}

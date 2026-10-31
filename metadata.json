@@ -1,0 +1,6 @@
+{
+  "name": "TileMemo - Game Tile Spatial Memo & Study Grid",
+  "description": "Tactile game-tile memo board with text, equations, and drawing tiles, 3D flip card mechanics, zoom-in inspector, position swapping, and 100% secure local storage.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
