@@ -5,6 +5,7 @@ import {
   TileStyle,
   FontChoice,
   BorderStyleChoice,
+  ContentType,
 } from '../types/memo';
 import { EquationRenderer, EQUATION_TEMPLATES, MATH_SYMBOLS } from './EquationRenderer';
 import { DoodleCanvas } from './DoodleCanvas';
@@ -31,6 +32,10 @@ import {
   Link as LinkIcon,
   ExternalLink,
   Globe,
+  Paperclip,
+  Download,
+  UploadCloud,
+  File,
 } from 'lucide-react';
 
 interface TileEditorProps {
@@ -87,15 +92,21 @@ export const TileEditor: React.FC<TileEditorProps> = ({
   const [frontStyle, setFrontStyle] = useState<TileStyle>({ ...tile.frontStyle });
   const [backStyle, setBackStyle] = useState<TileStyle>({ ...tile.backStyle });
 
-  // Toggles for bottom options: formula, image, voice, link, styling
+  // Toggles for bottom options: formula, image, voice, link, file, styling
   const [showEquation, setShowEquation] = useState<boolean>(Boolean(tile.front.equation || tile.back.equation));
   const [showImage, setShowImage] = useState<boolean>(Boolean(tile.front.image || tile.back.image));
   const [showVoice, setShowVoice] = useState<boolean>(Boolean(tile.front.audio || tile.back.audio));
   const [showLink, setShowLink] = useState<boolean>(Boolean(tile.front.linkUrl || tile.back.linkUrl));
+  const [showFileAttachment, setShowFileAttachment] = useState<boolean>(
+    Boolean(tile.front.fileData || tile.back.fileData)
+  );
   const [showStylePanel, setShowStylePanel] = useState<boolean>(false);
   const [linkInputUrl, setLinkInputUrl] = useState<string>('');
   const [linkInputTitle, setLinkInputTitle] = useState<string>('');
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
+  const [fileWarning, setFileWarning] = useState<string | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Sync link inputs when activeTab changes
   React.useEffect(() => {
@@ -154,6 +165,57 @@ export const TileEditor: React.FC<TileEditorProps> = ({
       const newPos = start + markdownLink.length;
       textarea.setSelectionRange(newPos, newPos);
     }, 0);
+  };
+
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes || bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i] || 'MB'}`;
+  };
+
+  const handleProcessFile = (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      setFileWarning('Ukuran berkas melebihi 5 MB. Disarankan berkas lebih kecil agar tidak memenuhi batas penyimpanan peramban.');
+    } else if (file.size > 2 * 1024 * 1024) {
+      setFileWarning('Ukuran berkas lumayan besar (>2 MB). Disarankan menggunakan berkas yang efisien.');
+    } else {
+      setFileWarning(null);
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setFace((prev) => ({
+          ...prev,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type || 'application/octet-stream',
+          fileData: result,
+        }));
+        soundFx.playSave();
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleProcessFile(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleProcessFile(file);
+    }
   };
 
   const currentFace = activeTab === 'front' ? frontFace : backFace;
@@ -392,10 +454,11 @@ export const TileEditor: React.FC<TileEditorProps> = ({
   const handleSaveAndClose = () => {
     soundFx.playSave();
     // Derive primary content type cleanly
-    const deriveType = (face: TileFaceContent) => {
+    const deriveType = (face: TileFaceContent): ContentType => {
       if (face.audio) return 'voice';
       if (face.image) return 'image';
       if (face.equation) return 'equation';
+      if (face.fileData && !face.text) return 'file';
       return 'text';
     };
 
@@ -502,7 +565,7 @@ export const TileEditor: React.FC<TileEditorProps> = ({
             onChange={(e) => setFace((prev) => ({ ...prev, text: e.target.value }))}
             onKeyDown={handleKeyDown}
             placeholder="Tulis catatan di sini... (Gunakan tombol Checklist atau Numbering di bawah)"
-            rows={showEquation || showImage || showVoice ? 3 : 7}
+            rows={showEquation || showImage || showVoice || showLink || showFileAttachment ? 3 : 7}
             style={{
               color: currentStyle.textColor || '#334155',
               textAlign: currentStyle.textAlign || 'left',
@@ -768,6 +831,155 @@ export const TileEditor: React.FC<TileEditorProps> = ({
             </div>
           )}
 
+          {/* INLINE EXPANDED BLOCK 5: LAMPIRAN BERKAS / ATTACH FILE */}
+          {(showFileAttachment || currentFace.fileData) && (
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <Paperclip className="w-4 h-4 text-emerald-600" /> Lampiran Berkas (File)
+                </span>
+                <div className="flex items-center gap-1">
+                  {currentFace.fileData && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFace((prev) => ({
+                          ...prev,
+                          fileName: undefined,
+                          fileSize: undefined,
+                          fileType: undefined,
+                          fileData: undefined,
+                        }));
+                        setFileWarning(null);
+                      }}
+                      className="text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                      title="Hapus Berkas Terlampir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowFileAttachment(false)}
+                    className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+                    title="Tutup Panel Berkas"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Warning if file is large */}
+              {fileWarning && (
+                <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 leading-relaxed">
+                  ⚠️ {fileWarning}
+                </div>
+              )}
+
+              {/* Display attached file details or upload dropzone */}
+              {currentFace.fileData ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between p-3 bg-white border border-emerald-200 rounded-xl shadow-2xs">
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700">
+                        <File className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-slate-800 truncate" title={currentFace.fileName}>
+                          {currentFace.fileName || 'Berkas Lampiran'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                          <span>{formatFileSize(currentFace.fileSize)}</span>
+                          {currentFace.fileType && (
+                            <span className="truncate max-w-[150px] bg-slate-100 px-1.5 py-0.5 rounded text-[10px] text-slate-500">
+                              {currentFace.fileType.split('/')[1] || currentFace.fileType}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Download button */}
+                      <a
+                        href={currentFace.fileData}
+                        download={currentFace.fileName || 'berkas'}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs shadow-2xs transition-colors cursor-pointer"
+                        title="Unduh Berkas Ini"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Unduh</span>
+                      </a>
+
+                      {/* Replace file button */}
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                        title="Ganti dengan berkas lain"
+                      >
+                        Ganti
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mention file in note text */}
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundFx.playSelect();
+                        const mention = `📎 [Berkas: ${currentFace.fileName || 'Lampiran'}]`;
+                        setFace((prev) => ({
+                          ...prev,
+                          text: prev.text ? `${prev.text}\n${mention}` : mention,
+                        }));
+                      }}
+                      className="text-[11px] text-emerald-700 hover:text-emerald-800 font-medium hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>+ Sisipkan nama berkas ke catatan</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Drag and drop zone */
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingFile(true);
+                  }}
+                  onDragLeave={() => setIsDraggingFile(false)}
+                  onDrop={handleFileDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`p-5 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${
+                    isDraggingFile
+                      ? 'border-emerald-500 bg-emerald-50/70 scale-[1.01]'
+                      : 'border-slate-300 hover:border-emerald-400 bg-white hover:bg-slate-50/80'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-2xs">
+                    <UploadCloud className="w-5 h-5" />
+                  </div>
+                  <div className="text-center">
+                    <span className="text-xs font-semibold text-slate-800 block">
+                      Klik untuk memilih berkas atau seret berkas ke sini
+                    </span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      Mendukung PDF, Dokumen, Spreadsheet, Gambar, Audio, ZIP, dll. (Maksimal disarankan 3-5 MB)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+            </div>
+          )}
+
           {/* INLINE EXPANDED BLOCK 4: KUSTOMISASI TEKS & WARNA */}
           {showStylePanel && (
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-3 animate-in fade-in duration-150">
@@ -1008,6 +1220,24 @@ export const TileEditor: React.FC<TileEditorProps> = ({
             >
               <LinkIcon className="w-3.5 h-3.5" />
               <span>Tautan</span>
+            </button>
+
+            {/* + Berkas (Lampiran File) */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowFileAttachment(!showFileAttachment);
+                soundFx.playSelect();
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                showFileAttachment || currentFace.fileData
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-2xs'
+              }`}
+              title="Lampirkan berkas dokumen, PDF, ZIP, spreadsheet, dll."
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+              <span>Berkas</span>
             </button>
 
             {/* Gaya & Warna */}

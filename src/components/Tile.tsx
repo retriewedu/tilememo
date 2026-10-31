@@ -21,7 +21,17 @@ import {
   Square,
   Link as LinkIcon,
   ExternalLink,
+  Paperclip,
+  Download,
+  File,
 } from 'lucide-react';
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i] || 'MB'}`;
+}
 
 interface TileProps {
   tile: TileData;
@@ -136,7 +146,8 @@ export const Tile: React.FC<TileProps> = ({
       currentFace.equation ||
       currentFace.image ||
       currentFace.audio ||
-      currentFace.linkUrl
+      currentFace.linkUrl ||
+      currentFace.fileData
   );
 
   const handlePlayAudio = (e: React.MouseEvent) => {
@@ -161,10 +172,20 @@ export const Tile: React.FC<TileProps> = ({
       if (currentFace.linkUrl) {
         copyText += (copyText ? '\n' : '') + currentFace.linkUrl;
       }
+      if (currentFace.fileName) {
+        copyText += (copyText ? '\n' : '') + `[Lampiran: ${currentFace.fileName}]`;
+      }
+    } else if (currentFace.type === 'file') {
+      copyText = `${currentFace.title ? currentFace.title + '\n' : ''}[Lampiran: ${currentFace.fileName || 'Berkas'}]`;
     } else if (currentFace.title) {
       copyText = currentFace.title + (currentFace.linkUrl ? '\n' + currentFace.linkUrl : '');
+      if (currentFace.fileName) {
+        copyText += (copyText ? '\n' : '') + `[Lampiran: ${currentFace.fileName}]`;
+      }
     } else if (currentFace.linkUrl) {
       copyText = currentFace.linkUrl;
+    } else if (currentFace.fileName) {
+      copyText = `[Lampiran: ${currentFace.fileName}]`;
     }
     if (copyText) {
       navigator.clipboard.writeText(copyText);
@@ -372,6 +393,55 @@ export const Tile: React.FC<TileProps> = ({
                 </a>
               )}
 
+              {/* Dedicated Tile File Attachment Chip (shown when with text or other content) */}
+              {currentFace.fileData && (currentFace.text || currentFace.type !== 'file') && (
+                <a
+                  href={currentFace.fileData}
+                  download={currentFace.fileName || 'berkas'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    soundFx.playSelect();
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 my-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 hover:text-emerald-950 border border-emerald-200 text-[10px] font-medium max-w-[95%] truncate transition-colors z-10 group/file"
+                  title={`Unduh berkas: ${currentFace.fileName || 'berkas'} ${currentFace.fileSize ? `(${formatFileSize(currentFace.fileSize)})` : ''}`}
+                >
+                  <Paperclip className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">
+                    {currentFace.fileName || 'Berkas Terlampir'}
+                  </span>
+                  <Download className="w-2.5 h-2.5 text-emerald-500 opacity-60 group-hover/file:opacity-100 shrink-0" />
+                </a>
+              )}
+
+              {/* Dedicated File Tile View (when tile is primarily a file) */}
+              {currentFace.type === 'file' && currentFace.fileData && !currentFace.text && (
+                <div className="w-full flex flex-col items-center justify-center p-1 gap-1">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-2xs">
+                    <File className="w-4 h-4" />
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 line-clamp-1 max-w-[95%] truncate" title={currentFace.fileName}>
+                    {currentFace.fileName || 'Berkas'}
+                  </span>
+                  {currentFace.fileSize ? (
+                    <span className="text-[9px] text-slate-400 font-mono">
+                      {formatFileSize(currentFace.fileSize)}
+                    </span>
+                  ) : null}
+                  <a
+                    href={currentFace.fileData}
+                    download={currentFace.fileName || 'berkas'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      soundFx.playSelect();
+                    }}
+                    className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-medium shadow-2xs transition-colors"
+                  >
+                    <Download className="w-2.5 h-2.5" />
+                    <span>Unduh</span>
+                  </a>
+                </div>
+              )}
+
               {/* Equation */}
               {currentFace.type === 'equation' && currentFace.equation && (
                 <div className="w-full flex items-center justify-center max-h-full overflow-hidden text-center scale-90 origin-center">
@@ -515,6 +585,7 @@ export const Tile: React.FC<TileProps> = ({
             {currentFace.type === 'equation' && <Sigma className="w-3 h-3" />}
             {currentFace.type === 'image' && <ImageIcon className="w-3 h-3" />}
             {currentFace.type === 'voice' && <Mic className="w-3 h-3 text-slate-700" />}
+            {currentFace.type === 'file' && <Paperclip className="w-3 h-3 text-emerald-600" />}
             {currentFace.type === 'text' && hasContent && (
               currentFace.text?.includes('[ ]') || currentFace.text?.includes('[x]') ? (
                 <ListTodo className="w-3 h-3 text-slate-600" />
@@ -528,6 +599,11 @@ export const Tile: React.FC<TileProps> = ({
             ) && (
               <span title="Memiliki hyperlink">
                 <LinkIcon className="w-3 h-3 text-sky-500" />
+              </span>
+            )}
+            {Boolean(currentFace.fileData && currentFace.type !== 'file') && (
+              <span title={`Memiliki lampiran: ${currentFace.fileName || 'berkas'}`}>
+                <Paperclip className="w-3 h-3 text-emerald-600" />
               </span>
             )}
           </div>

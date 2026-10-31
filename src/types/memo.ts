@@ -1,4 +1,4 @@
-export type ContentType = 'text' | 'equation' | 'image' | 'voice';
+export type ContentType = 'text' | 'equation' | 'image' | 'voice' | 'file';
 
 export type FontChoice =
   | 'Plus Jakarta Sans'
@@ -20,6 +20,10 @@ export interface TileFaceContent {
   audioDuration?: number; // duration in seconds
   linkUrl?: string; // URL web (e.g. https://...)
   linkTitle?: string; // Label tautan
+  fileName?: string; // Nama file (misal 'dokumen.pdf', 'data.xlsx')
+  fileSize?: number; // Ukuran file dalam bytes
+  fileType?: string; // MIME type (misal 'application/pdf')
+  fileData?: string; // base64 data URL
 }
 
 export interface TileStyle {

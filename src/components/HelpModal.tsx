@@ -90,9 +90,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-slate-900 text-sm mb-0.5">Voice Memo, Rumus LaTeX, &amp; Privasi 100%</div>
+              <div className="font-bold text-slate-900 text-sm mb-0.5">Lampiran Berkas, Tautan, Voice Memo, &amp; Privasi 100%</div>
               <p className="text-slate-600 leading-relaxed">
-                Dukungan rekam suara voice memo, rumus matematika KaTeX, dan sketsa gambar. Seluruh data disimpan secara lokal di browser dan dapat diekspor/diimpor via menu pengaturan di pojok kanan bawah.
+                Lampirkan berkas (PDF, dokumen, gambar, zip), tautan web (hyperlink), rekaman suara (voice memo), rumus matematika KaTeX, dan sketsa. Seluruh data disimpan lokal di peramban Anda dan dapat diekspor/diimpor via menu pengaturan di pojok kanan bawah.
               </p>
             </div>
           </div>
